@@ -6,8 +6,6 @@ module.exports = function (app) {
   app.use('/', router);
 };
 
-// TODO - issue #4 add linting to project
-
 // TODO - issue #2 how to dispatch status/progress
 // endpoint to handle conversion request;
 // convert array of queue items into an archive of mp3s;
@@ -36,7 +34,7 @@ router.post('/convert',
     //   vidId: "wE46huUs20E"
     // };
 
-    converter.getMp3(req.body.vidId, req.body.name,
+    converter.getMp3(req.body.vidId, req.body.name + '.mp3',
       function(err, data) {
         console.log('home.js: completion: err, data:', err, data);
         res.json(data);

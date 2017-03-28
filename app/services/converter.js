@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const YoutubeMp3Downloader = require('youtube-mp3-downloader');
+const YoutubeMp3Downloader = require('youtube-mp3-downloader'); // https://goo.gl/KmCO11
 
 let config = {
   // Where is the FFmpeg binary located?
@@ -14,6 +14,38 @@ let config = {
   // How long should be the interval of the progress reports
   'progressTimeout': 2000
 };
+
+
+// TODO - issue #5, fork YoutubeMp3Downloader to inject
+// start time / duration into fluent-ffmpeg instance
+
+/*
+  // github reference points:
+  // https://goo.gl/5N2BNT
+  // https://goo.gl/0sZNYY
+
+  // just implement timestamp version - who would re-calculate duration?
+
+  start time:
+  ffmpeg('path').seekInput(134.5); // number in seconds
+  ffmpeg('path').seekInput('2:14.500'); // timestamp string
+
+  duration:
+  ffmpeg('path').duration(134.5); // number in seconds
+  ffmpeg('path').duration('2:14.500'); // timestamp string
+*/
+
+// TODO - CREATE SEPARATE BRANCHES FOR EACH OF THESE!
+
+// TODO - download multiples and convert to archive
+// TODO - delete files after timeout
+
+// TODO - refactor to allow multiple concurrent conversions
+// TODO - need to implement collection for callbacks
+
+// TODO - socket.io for progress
+
+// TODO - isomorphic!
 
 const getMp3 = function(
   videoId,
