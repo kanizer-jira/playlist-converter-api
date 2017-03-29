@@ -23,10 +23,6 @@ const ConverterEmitter = require('./emitter');
   ffmpeg('path').duration('2:14.500'); // timestamp string
 */
 
-// TODO - CREATE SEPARATE BRANCHES FOR EACH OF THESE!
-
-// TODO - refactor to allow multiple concurrent conversions
-// TODO - need to implement collection for callbacks
 // TODO - download multiples and convert to archive
 // TODO - delete files after timeout
 
@@ -49,19 +45,20 @@ const config = {
   'progressTimeout': 2000
 };
 const YD = new Ytdl(config);
-// let folderId;
 
 const getMp3 = function(
   folderId,
   videoId,
-  name
+  videoName,
+  onComplete
 ) {
+  const emitterKey = `${folderId}-${videoId}`;
 
   makeDestinationFolder(folderId)
   .then( destPath => {
 
     // Trigger download
-    YD.download(videoId, folderId + '/' + name);
+    YD.download(videoId, `${folderId}/${videoName}`);
 
     //###########################
     // event handlers/callbacks
@@ -83,12 +80,9 @@ const getMp3 = function(
         thumbnail: 'https://i.ytimg.com/vi/wE46huUs20E/hqdefault.jpg'
       }
     */
-    YD.on('finished', function(error, data) {
-      ConverterEmitter.get(folderId + '-' + videoId)
-      .emit('finished', error, data);
-    });
+    YD.on('finished', onComplete);
     YD.on('error', function(error, data) {
-      ConverterEmitter.get(folderId + '-' + videoId)
+      ConverterEmitter.get(emitterKey)
       .emit('finished', error, data);
     });
 
@@ -108,19 +102,19 @@ const getMp3 = function(
       }
     */
     YD.on('progress', function(progress) {
-      ConverterEmitter.get(folderId + '-' + videoId)
+      ConverterEmitter.get(emitterKey)
       .emit('progress', progress);
     });
 
     // just returns an integer for items left in the queue
     YD.on('queueSize', function(size) {
-      ConverterEmitter.get(folderId + '-' + videoId)
+      ConverterEmitter.get(emitterKey)
       .emit('queueSize', size);
     });
   })
   .catch( err => {
     ConverterEmitter.get(folderId)
-    .emit('folder-error', err);
+    .emit('folder-error', err, folderId);
   });
 
 };

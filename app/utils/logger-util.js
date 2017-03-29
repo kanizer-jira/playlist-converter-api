@@ -48,11 +48,11 @@ var Logger = bunyan.createLogger({
   level: 'trace'
 });
 
-Logger.trace('Logger.js > test');
-Logger.debug('Logger.js > test');
-Logger.info('Logger.js > test');
-Logger.warn('Logger.js > test');
-Logger.error('Logger.js > test');
-Logger.fatal('Logger.js > test');
+// Logger.trace('Logger.js > test');
+// Logger.debug('Logger.js > test');
+// Logger.info('Logger.js > test');
+// Logger.warn('Logger.js > test');
+// Logger.error('Logger.js > test');
+// Logger.fatal('Logger.js > test');
 
 module.exports = Logger;

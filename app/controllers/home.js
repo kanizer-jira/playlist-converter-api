@@ -31,42 +31,102 @@ router.post('/convert',
   (req, res, next) => {
 
     // console.log(req.body);
-
     // req.body = {
+    //   sessionId: 'mock-id',
     //   name: "Allen Stone - Somebody That I Used To Know (Gotye Cover - Live at Bear Creek Studio)",
-    //   vidId: "wE46huUs20E"
+    //   videoId: "wE46huUs20E"
     // };
 
-    // designate download folder name by date
-    const folderId = DateUtil.formatDate(new Date());
+    // // initiate conversion
+    // initiateConversion(req.body.sessionId, req.body.videoId, req.body.name + '.mp3')
+    // .then(data => {
+    //   res.json(data);
+    // })
+    // .catch(err => {
+    //   res.send(403, {error: err.message});
+    // });
 
-    // listen for conversion events
-    ConverterEmitter.get(folderId)
-    .on('folder-error', err => {
-      Logger.trace('home.js: create folder error: err:', err);
-    });
+    // initiateConversion('9FBA3vcKdiY', 'the-bed-i-made.mp3')
+    // .then(data => {
+    //   res.json(data);
+    // })
+    // .catch(err => {
+    //   res.send(403, {error: err.message});
+    // });
 
-    ConverterEmitter.get(folderId + '-' + req.body.vidId)
-    .on('finished', (err, data) => {
-      Logger.trace('home.js: completion: err, data:', err, data);
-      res.json(data);
-    })
-    .on('progress', progress => {
-      Logger.trace('home.js: prog:', {
-        videoId: progress.videoId,
-        percentage: progress.progress.percentage,
-        runtime: progress.progress.runtime
-      });
-    })
-    .on('queueSize', size => {
-      Logger.trace('home.js: queue size:', size);
-    });
+    // initiateConversion('kqbx7efyTV0', 'contact-high' + '.mp3')
+    // .then(data => {
+    //   res.json(data);
+    // })
+    // .catch(err => {
+    //   res.send(403, {error: err.message});
+    // });
 
-    // initiate conversion
-    converter.getMp3(folderId, req.body.vidId, req.body.name + '.mp3');
-    // converter.getMp3(folderId, req.body.vidId, req.body.name + '.mp3');
-    // converter.getMp3(folderId, req.body.vidId, req.body.name + '.mp3');
+    initiateConversion(req.body.sessionId);
 
   }
 
 );
+
+const initiateConversion = function(sessionId, videoId, videoName) {
+  // designate download folder name by date & session ID
+  const folderId = DateUtil.formatDate(new Date()) + '/' + sessionId;
+
+  // listen for conversion events
+  const emitterKey = `${folderId}-${videoId}`;
+  ConverterEmitter.get(folderId)
+  .on('folder-error', onFolderErr);
+
+  ConverterEmitter.get(emitterKey)
+  .on('progress', onConversionProgress)
+  .on('queueSize', onConversionQueueUpdate); // not really relevant to this use case
+
+  // initiate conversion
+  return new Promise( (resolve, reject) => {
+    converter.getMp3(folderId, videoId, videoName + '.mp3',
+      // using a callback for completion to avoid a dangling listener
+      // and retain reference to the server response property
+      (err, data) => {
+        Logger.trace('home.js: completion: err, data:', err, data);
+        unbindListeners(folderId, emitterKey);
+        return err ? reject(err) : resolve(data);
+      }
+    );
+  });
+
+};
+
+const aggregateFiles = function(sessionId) {
+  const folderId = DateUtil.formatDate(new Date()) + '/' + sessionId;
+  
+};
+
+
+// ----------------------------------------------------------------------
+//
+// conversion event handlers
+//
+// ----------------------------------------------------------------------
+const onFolderErr = (err, folderId) => {
+  Logger.trace('home.js: create folder error: err:', err);
+
+  // unbind expired listeners
+  ConverterEmitter.get(folderId)
+  .removeListener('folder-error', onFolderErr);
+};
+
+const onConversionProgress = progress => {
+  Logger.trace('home.js: prog: videoId:', progress.videoId, 'percentage:', progress.progress.percentage);
+};
+
+const onConversionQueueUpdate = size => {
+  Logger.trace('home.js: queue size:', size);
+};
+
+const unbindListeners = (folderId, emitterKey) => {
+  // unbind expired listeners
+  ConverterEmitter.get(folderId)
+  .removeListener(folderId, onFolderErr)
+  .removeListener(emitterKey, onConversionProgress)
+  .removeListener(emitterKey, onConversionQueueUpdate);
+};
