@@ -2,7 +2,8 @@ var gulp = require('gulp'),
   nodemon = require('gulp-nodemon'),
   plumber = require('gulp-plumber'),
   livereload = require('gulp-livereload'),
-  sass = require('gulp-ruby-sass');
+  sass = require('gulp-ruby-sass'),
+  bunyan = require('bunyan');
 
 gulp.task('sass', function () {
   return sass('./public/css/**/*.scss')
@@ -19,7 +20,8 @@ gulp.task('develop', function () {
   nodemon({
     script: 'app.js',
     ext: 'js coffee jade',
-    stdout: false
+    stdout: false,
+    env: { FORCE_COLOR: '1' }
   }).on('readable', function () {
     this.stdout.on('data', function (chunk) {
       if(/^Express server listening on port/.test(chunk)){

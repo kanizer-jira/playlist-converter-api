@@ -1,6 +1,9 @@
-var express = require('express');
-var router = express.Router();
-var converter = require('../services/converter');
+const express          = require('express');
+const router           = express.Router();
+const converter        = require('../services/converter');
+const ConverterEmitter = require('../services/emitter');
+const DateUtil         = require('../utils/date-util');
+const Logger           = require('../utils/logger-util');
 
 module.exports = function (app) {
   app.use('/', router);
@@ -34,18 +37,35 @@ router.post('/convert',
     //   vidId: "wE46huUs20E"
     // };
 
-    converter.getMp3(req.body.vidId, req.body.name + '.mp3',
-      function(err, data) {
-        console.log('home.js: completion: err, data:', err, data);
-        res.json(data);
-      },
-      function(progress) {
-        console.log('home.js: prog:', progress);
-      },
-      function(size) {
-        console.log('home.js: queue size:', size);
-      }
-    );
+    // designate download folder name by date
+    const folderId = DateUtil.formatDate(new Date());
+
+    // listen for conversion events
+    ConverterEmitter.get(folderId)
+    .on('folder-error', err => {
+      Logger.trace('home.js: create folder error: err:', err);
+    });
+
+    ConverterEmitter.get(folderId + '-' + req.body.vidId)
+    .on('finished', (err, data) => {
+      Logger.trace('home.js: completion: err, data:', err, data);
+      res.json(data);
+    })
+    .on('progress', progress => {
+      Logger.trace('home.js: prog:', {
+        videoId: progress.videoId,
+        percentage: progress.progress.percentage,
+        runtime: progress.progress.runtime
+      });
+    })
+    .on('queueSize', size => {
+      Logger.trace('home.js: queue size:', size);
+    });
+
+    // initiate conversion
+    converter.getMp3(folderId, req.body.vidId, req.body.name + '.mp3');
+    // converter.getMp3(folderId, req.body.vidId, req.body.name + '.mp3');
+    // converter.getMp3(folderId, req.body.vidId, req.body.name + '.mp3');
 
   }
 
