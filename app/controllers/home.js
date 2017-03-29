@@ -4,6 +4,8 @@ const converter        = require('../services/converter');
 const ConverterEmitter = require('../services/emitter');
 const DateUtil         = require('../utils/date-util');
 const Logger           = require('../utils/logger-util');
+const ArchiveUtil      = require('../utils/archive-util');
+
 
 module.exports = function (app) {
   app.use('/', router);
@@ -62,7 +64,15 @@ router.post('/convert',
     //   res.send(403, {error: err.message});
     // });
 
-    initiateConversion(req.body.sessionId);
+    aggregateFiles(req.body.sessionId)
+    .then(() => {
+      res.json({
+        message: 'Your archive is ready - put path here'
+      });
+    })
+    .catch( err => {
+      res.status(403).send({error: err.message});
+    });
 
   }
 
@@ -98,7 +108,20 @@ const initiateConversion = function(sessionId, videoId, videoName) {
 
 const aggregateFiles = function(sessionId) {
   const folderId = DateUtil.formatDate(new Date()) + '/' + sessionId;
-  
+  return new Promise((resolve, reject) => {
+    ArchiveUtil.zip(folderId,
+      err => {
+        if(err) {
+          Logger.info('ERROR!', err);
+          return reject(err);
+        }
+        Logger.info('ARCHIVE!');
+        return resolve();
+      }
+    );
+
+  });
+
 };
 
 
