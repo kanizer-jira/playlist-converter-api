@@ -1,9 +1,9 @@
 // require modules
-const fs = require('fs');
-const path = require('path');
-const glob = require('glob');
+const fs       = require('fs');
+const path     = require('path');
+const glob     = require('glob');
 const archiver = require('archiver');
-const Logger = require('./logger-util');
+const Logger   = require('./logger-util');
 
 class ArchiveUtil {
 
@@ -29,7 +29,7 @@ class ArchiveUtil {
     archive.pipe(output);
 
     // append files in target directory
-    glob(`${fullPath}/*.mp3`, function (err, files) {
+    glob(`${fullPath}/*.mp3`, (err, files) => {
       if(err) {
         onComplete(err);
         return;
