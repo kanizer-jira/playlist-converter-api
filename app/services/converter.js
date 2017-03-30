@@ -4,32 +4,6 @@ const Ytdl = require('youtube-mp3-downloader'); // https://goo.gl/KmCO11
 const ConverterEmitter = require('./emitter');
 
 
-// TODO - issue #5, fork YoutubeMp3Downloader to inject
-// start time / duration into fluent-ffmpeg instance
-
-/*
-  // github reference points:
-  // https://goo.gl/5N2BNT
-  // https://goo.gl/0sZNYY
-
-  // just implement timestamp version - who would re-calculate duration?
-
-  start time:
-  ffmpeg('path').seekInput(134.5); // number in seconds
-  ffmpeg('path').seekInput('2:14.500'); // timestamp string
-
-  duration:
-  ffmpeg('path').duration(134.5); // number in seconds
-  ffmpeg('path').duration('2:14.500'); // timestamp string
-*/
-
-// TODO - download multiples and convert to archive
-// TODO - delete files after timeout
-
-// TODO - socket.io for progress
-
-// TODO - isomorphic!
-
 // This instance handles downloading from Youtube and handling the conversion requests
 // - paths should be to instance on a container or local machine...shouldn't need to change
 const config = {
