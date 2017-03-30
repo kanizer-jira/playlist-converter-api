@@ -1,6 +1,7 @@
 // require modules
 const fs = require('fs');
 const path = require('path');
+const glob = require('glob');
 const archiver = require('archiver');
 const Logger = require('./logger-util');
 
@@ -27,29 +28,22 @@ class ArchiveUtil {
     // pipe archive data to the file
     archive.pipe(output);
 
-    // // append a file from stream
-    // var file1 = __dirname + '/file1.txt';
-    // archive.append(fs.createReadStream(file1), { name: 'file1.txt' });
+    // append files in target directory
+    glob(`${fullPath}/*.mp3`, function (err, files) {
+      if(err) {
+        onComplete(err);
+        return;
+      }
 
-    // // append a file from string
-    // archive.append('string cheese!', { name: 'file2.txt' });
+      files.forEach(file => {
+        const trimmed = file.split(fullPath)[1];
+        archive.file(file, { name: `compressed${trimmed}` }); // preceding slash is still in `trimmed`
+      });
 
-    // // append a file from buffer
-    // var buffer3 = new Buffer('buff it!');
-    // archive.append(buffer3, { name: 'file3.txt' });
+      // finalize the archive (ie we are done appending files but streams have to finish yet)
+      archive.finalize();
 
-    // // append a file
-    // archive.file('file1.txt', { name: 'file4.txt' });
-
-    // // append files from a directory
-    // archive.directory(fullPath);
-
-    // TODO - reduce intermediate directories in archive...
-    // append files from a glob pattern
-    archive.glob(`${fullPath}/*.mp3`);
-
-    // finalize the archive (ie we are done appending files but streams have to finish yet)
-    archive.finalize();
+    });
 
   }
 
