@@ -7,7 +7,7 @@ const Logger   = require('./logger-util');
 
 class ArchiveUtil {
 
-  static zip(targetDirectory, onComplete) {
+  static zip(targetDirectory, onComplete, onError) {
     // create a file to stream archive data to.
     const fullPath = path.resolve(`./public/downloads/${targetDirectory}`);
     const output = fs.createWriteStream(fullPath + '.zip');
@@ -31,7 +31,7 @@ class ArchiveUtil {
     // append files in target directory
     glob(`${fullPath}/*.mp3`, (err, files) => {
       if(err) {
-        onComplete(err);
+        onError(err);
         return;
       }
 
@@ -42,11 +42,8 @@ class ArchiveUtil {
 
       // finalize the archive (ie we are done appending files but streams have to finish yet)
       archive.finalize();
-
     });
-
   }
-
 }
 
 module.exports = ArchiveUtil;

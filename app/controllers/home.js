@@ -1,5 +1,8 @@
+const fs               = require('fs');
+const path             = require('path');
 const express          = require('express');
 const router           = express.Router();
+const rimraf           = require('rimraf');
 const converter        = require('../services/converter');
 const ConverterEmitter = require('../services/emitter');
 const DateUtil         = require('../utils/date-util');
@@ -25,8 +28,6 @@ const ArchiveUtil      = require('../utils/archive-util');
   ffmpeg('path').duration(134.5); // number in seconds
   ffmpeg('path').duration('2:14.500'); // timestamp string
 */
-
-// TODO - delete files after timeout
 
 // TODO - socket.io for progress
 
@@ -91,17 +92,17 @@ router.post('/convert',
     // });
 
     aggregateFiles(req.body.sessionId)
-    .then(() => {
+    .then( downloadPath => {
+      startDeleteTimer(downloadPath);
       res.json({
-        message: 'Your archive is ready - put path here'
+        message: 'Your archive is ready!',
+        downloadPath: downloadPath
       });
     })
     .catch( err => {
       res.status(403).send({error: err.message});
     });
-
   }
-
 );
 
 const initiateConversion = function(sessionId, videoId, videoName) {
@@ -138,16 +139,32 @@ const aggregateFiles = function(sessionId) {
     ArchiveUtil.zip(folderId,
       err => {
         if(err) {
-          Logger.info('ERROR!', err);
+          Logger.info('aggregateFiles: ERROR!', err);
           return reject(err);
         }
-        Logger.info('ARCHIVE!');
-        return resolve();
+        Logger.info('aggregateFiles: ARCHIVE!');
+        return resolve(folderId);
       }
     );
-
   });
+};
 
+// TODO - this is pretty ghetto
+const startDeleteTimer = downloadPath => {
+  const fullPath = path.resolve(`./public/downloads/${downloadPath}`);
+  const deleteTimer = setTimeout( () => {
+    rimraf(fullPath, () => {
+      fs.unlink(`${fullPath}.zip`, err => {
+        if(err) {
+          // TODO - this is sort of an orphaned completion event...
+          Logger.error('startDeleteTimer: unlink err:', err);
+          return;
+        }
+        Logger.info('startDeleteTimer: Deletion complete.');
+        clearTimeout(deleteTimer);
+      });
+    });
+  }, 3600000);
 };
 
 
@@ -156,6 +173,7 @@ const aggregateFiles = function(sessionId) {
 // conversion event handlers
 //
 // ----------------------------------------------------------------------
+
 const onFolderErr = (err, folderId) => {
   Logger.trace('home.js: create folder error: err:', err);
 
