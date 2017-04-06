@@ -12,6 +12,16 @@ class ConverterEmitter {
     return emitters[key];
   }
 
+  static getKeys() {
+    return Object.keys(emitters);
+  }
+
+  static remove(key) {
+    if(!emitters[key]) {
+      emitters[key] = undefined;
+      delete emitters[key];
+    }
+  }
 }
 
 module.exports = ConverterEmitter;

@@ -1,14 +1,15 @@
-var path = require('path'),
-    rootPath = path.normalize(__dirname + '/..'),
-    env = process.env.NODE_ENV || 'development';
+const path     = require('path');
+const rootPath = path.normalize(__dirname + '/..');
+const env      = process.env.NODE_ENV || 'development';
 
-var config = {
+const config = {
   development: {
     root: rootPath,
     app: {
       name: 'playlist-converter-api'
     },
     port: process.env.PORT || 3800,
+    io: process.env.IO || 3838
   },
 
   test: {
@@ -17,6 +18,7 @@ var config = {
       name: 'playlist-converter-api'
     },
     port: process.env.PORT || 3800,
+    io: process.env.IO || 3838
   },
 
   production: {
@@ -25,6 +27,7 @@ var config = {
       name: 'playlist-converter-api'
     },
     port: process.env.PORT || 3800,
+    io: process.env.IO || 3838
   }
 };
 

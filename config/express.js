@@ -1,17 +1,20 @@
-var express = require('express');
-var glob = require('glob');
+const express        = require('express');
+const glob           = require('glob');
 
-var favicon = require('serve-favicon');
-var logger = require('morgan');
-var cookieParser = require('cookie-parser');
-var bodyParser = require('body-parser');
-var compress = require('compression');
-var methodOverride = require('method-override');
+const favicon        = require('serve-favicon');
+const logger         = require('morgan');
+const cookieParser   = require('cookie-parser');
+const bodyParser     = require('body-parser');
+const compress       = require('compression');
+const methodOverride = require('method-override');
+const Logger         = require('../app/utils/logger-util');
+
 
 module.exports = function(app, config) {
-  var env = process.env.NODE_ENV || 'development';
+  // TODO - is this env var being set anywhere?
+  const env = process.env.NODE_ENV || 'development';
   app.locals.ENV = env;
-  app.locals.ENV_DEVELOPMENT = env == 'development';
+  app.locals.ENV_DEVELOPMENT = env === 'development';
 
   app.set('views', config.root + '/app/views');
   app.set('view engine', 'jade');
@@ -27,19 +30,29 @@ module.exports = function(app, config) {
   app.use(express.static(config.root + '/public'));
   app.use(methodOverride());
 
-  var controllers = glob.sync(config.root + '/app/controllers/*.js');
-  controllers.forEach(function (controller) {
-    require(controller)(app);
+
+  // configure socket.io
+  const server = require('http').createServer(app);
+  const io = require('socket.io')(server);
+
+  server.listen(config.io, () => {
+    Logger.trace('Socket.io listening at port %d', config.io);
   });
 
-  app.use(function (req, res, next) {
-    var err = new Error('Not Found');
+
+  const controllers = glob.sync(config.root + '/app/controllers/*.js');
+  controllers.forEach( controller => {
+    require(controller)(app, io);
+  });
+
+  app.use( (req, res, next) => {
+    let err = new Error('Not Found');
     err.status = 404;
     next(err);
   });
 
-  if(app.get('env') === 'development'){
-    app.use(function (err, req, res, next) {
+  if(app.get('env') === 'development') {
+    app.use( (err, req, res, next) => {
       res.status(err.status || 500);
       res.render('error', {
         message: err.message,
@@ -49,13 +62,13 @@ module.exports = function(app, config) {
     });
   }
 
-  app.use(function (err, req, res, next) {
+  app.use( (err, req, res, next) => {
     res.status(err.status || 500);
-      res.render('error', {
-        message: err.message,
-        error: {},
-        title: 'error'
-      });
+    res.render('error', {
+      message: err.message,
+      error: {},
+      title: 'error'
+    });
   });
 
   return app;

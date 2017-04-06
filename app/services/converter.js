@@ -1,7 +1,9 @@
 const fs = require('fs');
 const path = require('path');
+const mkdirp = require('mkdirp');
 const Ytdl = require('youtube-mp3-downloader'); // https://goo.gl/KmCO11
 const ConverterEmitter = require('./emitter');
+const Logger = require('../utils/logger-util');
 
 
 // This instance handles downloading from Youtube and handling the conversion requests
@@ -18,18 +20,20 @@ const config = {
   // How long should be the interval of the progress reports
   'progressTimeout': 2000
 };
-const YD = new Ytdl(config);
 
 const getMp3 = function(
+  emitterKey,
   folderId,
+  videoIndex,
   videoId,
   videoName,
   onComplete
 ) {
-  const emitterKey = `${folderId}-${videoId}`;
-
   makeDestinationFolder(folderId)
   .then( destPath => {
+    const YD = new Ytdl(config);
+
+    // TODO - need to check for duplicate, in progress conversions...or maybe existence of target file
 
     // Trigger download
     YD.download(videoId, `${folderId}/${videoName}`);
@@ -85,12 +89,12 @@ const getMp3 = function(
       ConverterEmitter.get(emitterKey)
       .emit('queueSize', size);
     });
+
   })
   .catch( err => {
     ConverterEmitter.get(folderId)
     .emit('folder-error', err, folderId);
   });
-
 };
 
 const makeDestinationFolder = function(folderId) {
@@ -105,7 +109,7 @@ const makeDestinationFolder = function(folderId) {
       }
 
       // create folder
-      return fs.mkdir(outputPathFull, writeErr => {
+      return mkdirp(outputPathFull, (writeErr) => {
         if(writeErr) {
           return reject(writeErr);
         }
