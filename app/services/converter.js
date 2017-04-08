@@ -1,9 +1,10 @@
-const fs = require('fs');
-const path = require('path');
-const mkdirp = require('mkdirp');
-const Ytdl = require('youtube-mp3-downloader'); // https://goo.gl/KmCO11
-const ConverterEmitter = require('./emitter');
-const Logger = require('../utils/logger-util');
+const fs       = require('fs');
+const path     = require('path');
+const mkdirp   = require('mkdirp');
+const sanitize = require('sanitize-filename');
+const Ytdl     = require('../lib/YoutubeMp3Downloader');
+const DateUtil = require('../utils/date-util');
+const Logger   = require('../utils/logger-util');
 
 
 // This instance handles downloading from Youtube and handling the conversion requests
@@ -16,33 +17,62 @@ const config = {
   // What video quality should be used?
   'youtubeVideoQuality': 'highest',
   // How many parallel downloads/encodes should be started?
-  'queueParallelism': 2,
+  'queueParallelism': 1,
   // How long should be the interval of the progress reports
   'progressTimeout': 2000
+
+  // optional props
+  // - startTime
+  // - endTime
+  // - title
+  // - artist
+
 };
 
-const getMp3 = function(
-  emitterKey,
-  folderId,
-  videoIndex,
-  videoId,
-  videoName,
-  onComplete
-) {
+
+// ----------------------------------------------------------------------
+//
+// public
+//
+// ----------------------------------------------------------------------
+
+const convert = function(params, callbacks) {
+
+  // lazier aggregated params don't enforce order and are simpler to read
+  const {
+    sessionId,
+    videoId,
+    videoTitle,
+
+    // optional
+    startTime,
+    endTime,
+    title,
+    artist
+  } = params;
+
+  const {
+    onProgress,
+    onComplete,
+    onConversionError,
+    onFolderError
+  } = callbacks;
+
+  // designate download folder name by date & session ID
+  const folderId = DateUtil.formatDate(new Date()) + '/' + sanitize(sessionId);
+
+  // kickoff conversion
   makeDestinationFolder(folderId)
   .then( destPath => {
-    const YD = new Ytdl(config);
+
+    // add optional props
+    const conf = Object.assign({}, config, { startTime, endTime, title, artist });
+    const YD = new Ytdl(conf);
 
     // TODO - need to check for duplicate, in progress conversions...or maybe existence of target file
 
-    // Trigger download
-    YD.download(videoId, `${folderId}/${videoName}`);
-
-    //###########################
-    // event handlers/callbacks
-    //###########################
-
-    /* completion/error object
+    /* schemas:
+      completion object:
       {
         videoId: 'wE46huUs20E',
         stats: {
@@ -57,14 +87,8 @@ const getMp3 = function(
         title: 'Somebody That I Used To Know (Gotye Cover',
         thumbnail: 'https://i.ytimg.com/vi/wE46huUs20E/hqdefault.jpg'
       }
-    */
-    YD.on('finished', onComplete);
-    YD.on('error', function(error, data) {
-      ConverterEmitter.get(emitterKey)
-      .emit('finished', error, data);
-    });
 
-    /* progress object
+      progress object:
       {
         videoId: 'wE46huUs20E',
         progress: {
@@ -79,22 +103,16 @@ const getMp3 = function(
         }
       }
     */
-    YD.on('progress', function(progress) {
-      ConverterEmitter.get(emitterKey)
-      .emit('progress', progress);
-    });
+    YD.on('progress', onProgress); // progress
+    YD.on('finished', onComplete); // error, data
+    YD.on('error', onConversionError); // error, data
 
-    // just returns an integer for items left in the queue
-    YD.on('queueSize', function(size) {
-      ConverterEmitter.get(emitterKey)
-      .emit('queueSize', size);
-    });
+    // Trigger download
+    const videoPath = `${folderId}/${sanitize(videoTitle)}.mp3`;
+    YD.download(videoId, videoPath);
 
   })
-  .catch( err => {
-    ConverterEmitter.get(folderId)
-    .emit('folder-error', err, folderId);
-  });
+  .catch( error => onFolderError );
 };
 
 const makeDestinationFolder = function(folderId) {
@@ -107,7 +125,6 @@ const makeDestinationFolder = function(folderId) {
       if(stats) {
         return resolve(stats);
       }
-
       // create folder
       return mkdirp(outputPathFull, (writeErr) => {
         if(writeErr) {
@@ -117,9 +134,15 @@ const makeDestinationFolder = function(folderId) {
       });
     });
   });
-
 };
 
+
+// ----------------------------------------------------------------------
+//
+// public interface
+//
+// ----------------------------------------------------------------------
+
 module.exports = {
-  getMp3: getMp3
+  convert
 };
