@@ -19,11 +19,11 @@ const config = {
   // How many parallel downloads/encodes should be started?
   'queueParallelism': 1,
   // How long should be the interval of the progress reports
-  'progressTimeout': 2000
+  'progressTimeout': 1000
 
   // optional props
   // - startTime
-  // - endTime
+  // - duration
   // - title
   // - artist
 
@@ -46,8 +46,8 @@ const convert = function(params, callbacks) {
 
     // optional
     startTime,
-    endTime,
-    title,
+    duration,
+    songTitle,
     artist
   } = params;
 
@@ -66,7 +66,7 @@ const convert = function(params, callbacks) {
   .then( destPath => {
 
     // add optional props
-    const conf = Object.assign({}, config, { startTime, endTime, title, artist });
+    const conf = Object.assign({}, config, { startTime, duration, songTitle, artist });
     const YD = new Ytdl(conf);
 
     // TODO - need to check for duplicate, in progress conversions...or maybe existence of target file
@@ -103,6 +103,7 @@ const convert = function(params, callbacks) {
         }
       }
     */
+
     YD.on('progress', onProgress); // progress
     YD.on('finished', onComplete); // error, data
     YD.on('error', onConversionError); // error, data

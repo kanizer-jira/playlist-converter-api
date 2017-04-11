@@ -16,7 +16,7 @@ var ffmpeg = require('fluent-ffmpeg');
 var ytdl = require('ytdl-core');
 var async = require('async');
 var progress = require('progress-stream');
-const Logger   = require('../utils/logger-util');
+var Logger = require('../utils/logger-util');
 
 function YoutubeMp3Downloader(options) {
 
@@ -34,34 +34,25 @@ function YoutubeMp3Downloader(options) {
   }
 
   // adding in/out time trimming options
-  self.startTime = '0';
+  self.startTime = 0;
 
-  if (options && (options.startTime || options.endTime)) {
+  if (options && (options.startTime || options.duration)) {
     self.startTime = options.startTime || self.startTime;
-    if (options.endTime) {
-      self.endTime = options.endTime;
+    if (options.duration) {
+      self.duration = options.duration;
     }
   }
 
-  // adding user input title/artist
+  // adding user input songTitle/artist
   if (options) {
-    if (options.title) {
-      self.title = options.title;
+    if (options.songTitle) {
+      self.songTitle = options.songTitle;
     }
 
     if (options.artist) {
       self.artist = options.artist;
     }
   }
-
-  Logger.info('youtube');
-  Logger.info('-------------------------------');
-  Logger.info('options', options);
-  Logger.info('self.startTime', self.startTime);
-  Logger.info('self.endTime', self.endTime);
-  Logger.info('self.title', self.title);
-  Logger.info('self.artist', self.artist);
-
 
   //Async download/transcode queue
   self.downloadQueue = async.queue(function (task, callback) {
@@ -139,12 +130,22 @@ YoutubeMp3Downloader.prototype.performDownload = function(task, callback) {
 
       //Overwrite artist / title fields if provided
       artist = self.artist || artist;
-      title = self.title || title;
+      title = self.songTitle || title;
 
       //Derive file name, if given, use it, if not, from video title
       var fileName = (task.fileName ? self.outputPath + '/' + task.fileName : self.outputPath + '/' + videoTitle + '.mp3');
 
-      ytdl.getInfo(videoUrl, { quality: self.youtubeVideoQuality }, function(err, info) {
+      ytdl.getInfo(videoUrl, {
+        begin: self.startTime + 's',
+        quality: self.youtubeVideoQuality
+      }, function(err, info) {
+
+        // get length to modify download percentage against strimmed values
+        var fullLengthSeconds = info.length_seconds;
+        var duration = (!self.duration && self.startTime)
+        ? fullLengthSeconds - self.startTime
+        : self.duration;
+        var trimmedPercentage = duration ? Math.floor(duration/fullLengthSeconds * 100) : 100;
 
         //Stream setup
         var stream = ytdl.downloadFromInfo(info, {
@@ -152,7 +153,6 @@ YoutubeMp3Downloader.prototype.performDownload = function(task, callback) {
         });
 
         stream.on("response", function(httpResponse) {
-
           //Setup of progress module
           var str = progress({
             length: parseInt(httpResponse.headers['content-length']),
@@ -161,14 +161,20 @@ YoutubeMp3Downloader.prototype.performDownload = function(task, callback) {
 
           //Add progress event listener
           str.on('progress', function(progress) {
+            // NOTE! this will not fire for trimmed vids
             if (progress.percentage === 100) {
-              resultObj.stats= {
+              resultObj.stats = {
                 transferredBytes: progress.transferred,
                 runtime: progress.runtime,
                 averageSpeed: parseFloat(progress.speed.toFixed(2))
               }
             }
-            self.emit("progress", {videoId: task.videoId, progress: progress});
+
+            self.emit("progress", {
+              videoId: task.videoId,
+              percentage: progress.percentage / trimmedPercentage
+              // progress: progress
+            });
           });
 
           //Configure encoding
@@ -192,11 +198,17 @@ YoutubeMp3Downloader.prototype.performDownload = function(task, callback) {
             resultObj.artist = artist;
             resultObj.title = title;
             resultObj.thumbnail = thumbnail;
+
+            self.emit("progress", {
+              videoId: task.videoId,
+              percentage: 100
+            });
+
             callback(null, resultObj);
           });
 
-          if(self.endTime) {
-            proc.duration(self.endTime); // time trim exit point timestamp string
+          if(self.duration) {
+            proc.duration(self.duration); // time trim exit point timestamp string
           }
 
           //Start encoding

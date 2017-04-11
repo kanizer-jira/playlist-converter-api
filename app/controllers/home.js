@@ -69,8 +69,8 @@ router.post('/convert',
       videoTitle: body.options.videoTitle,
       // optional
       startTime: body.options.startTime,
-      endTime: body.options.endTime,
-      title: body.options.title,
+      duration: body.options.duration,
+      songTitle: body.options.songTitle,
       artist: body.options.artist
     };
 
@@ -78,7 +78,7 @@ router.post('/convert',
       onProgress: progress => {
         _si.emit(CONVERSION_PROGRESS, {
           videoId: progress.videoId,
-          percentage: progress.progress.percentage
+          percentage: progress.percentage
         });
       },
       onComplete: (error, data) => {
