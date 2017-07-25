@@ -1,4 +1,3 @@
-  // TODO - issue #5
 /*
   forked YoutubeMp3Downloader to inject
   - start time / duration into fluent-ffmpeg instance
@@ -11,7 +10,7 @@
 
 var os = require('os');
 var util = require('util');
-var EventEmitter = require("events").EventEmitter;
+var EventEmitter = require('events').EventEmitter;
 var ffmpeg = require('fluent-ffmpeg');
 var ytdl = require('ytdl-core');
 var async = require('async');
@@ -148,11 +147,11 @@ YoutubeMp3Downloader.prototype.performDownload = function(task, callback) {
         var trimmedPercentage = duration ? Math.floor(duration/fullLengthSeconds * 100) : 100;
 
         //Stream setup
-        var stream = ytdl.downloadFromInfo(info, {
+        self.currentStream = ytdl.downloadFromInfo(info, {
           quality: self.youtubeVideoQuality
         });
 
-        stream.on("response", function(httpResponse) {
+        self.currentStream.on("response", function(httpResponse) {
           //Setup of progress module
           var str = progress({
             length: parseInt(httpResponse.headers['content-length']),
@@ -179,7 +178,7 @@ YoutubeMp3Downloader.prototype.performDownload = function(task, callback) {
 
           //Configure encoding
           var proc = new ffmpeg({
-            source: stream.pipe(str)
+            source: self.currentStream.pipe(str)
           })
           .audioBitrate(info.formats[0].audioBitrate)
           .withAudioCodec('libmp3lame')
@@ -201,7 +200,7 @@ YoutubeMp3Downloader.prototype.performDownload = function(task, callback) {
 
             self.emit("progress", {
               videoId: task.videoId,
-              percentage: 100
+              percentage: 1
             });
 
             callback(null, resultObj);
@@ -221,6 +220,17 @@ YoutubeMp3Downloader.prototype.performDownload = function(task, callback) {
 
   });
 
+};
+
+YoutubeMp3Downloader.prototype.destroy = function() {
+  // destroy in progress stream { Readable } from 'stream'
+  if(this.currentStream) {
+    this.currentStream.destroy();
+  }
+
+  if(this.downloadQueue) {
+    this.downloadQueue.kill(); // or .drain()?
+  }
 };
 
 module.exports = YoutubeMp3Downloader;

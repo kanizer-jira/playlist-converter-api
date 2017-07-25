@@ -10,7 +10,13 @@ npm i
 #### Start the dev server with - deploys to http://localhost:3800
 
 ```
-gulp
+npm start
+```
+
+#### Start the dev server in debug mode with - deploys to http://localhost:3800
+
+```
+npm run debug
 ```
 
 #### General

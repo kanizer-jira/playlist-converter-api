@@ -35,15 +35,14 @@ const config = {
 // public
 //
 // ----------------------------------------------------------------------
-
 const convert = function(params, callbacks) {
-
   // lazier aggregated params don't enforce order and are simpler to read
   const {
+    model,
+    socketToken,
     sessionId,
     videoId,
     videoTitle,
-
     // optional
     startTime,
     duration,
@@ -54,23 +53,24 @@ const convert = function(params, callbacks) {
   const {
     onProgress,
     onComplete,
-    onConversionError,
-    onFolderError
+    onError
   } = callbacks;
 
   // designate download folder name by date & session ID
   const folderId = DateUtil.formatDate(new Date()) + '/' + sanitize(sessionId);
+  const conversionKey = `${sessionId}-${videoId}`;
 
   // kickoff conversion
   makeDestinationFolder(folderId)
   .then( destPath => {
-
     // add optional props
     const conf = Object.assign({}, config, { startTime, duration, songTitle, artist });
-    const YD = new Ytdl(conf);
-
-    // TODO - need to check for duplicate, in progress conversions...or maybe existence of target file
-
+    return model.getConversionModel(socketToken)
+      .then( conversionModel => {
+        return conversionModel.add(conversionKey, new Ytdl(conf));
+      });
+  })
+  .then( conversion => {
     /* schemas:
       completion object:
       {
@@ -104,16 +104,45 @@ const convert = function(params, callbacks) {
       }
     */
 
-    YD.on('progress', onProgress); // progress
-    YD.on('finished', onComplete); // error, data
-    YD.on('error', onConversionError); // error, data
+    conversion.on('progress', onProgress); // progress
+    conversion.on('finished', onComplete); // error, data
 
     // Trigger download
     const videoPath = `${folderId}/${sanitize(videoTitle)}.mp3`;
-    YD.download(videoId, videoPath);
+    conversion.download(videoId, videoPath);
 
+    // bubble to promise chain
+    return new Promise( (resolve, reject) => {
+      conversion.on('error', error => reject(error));
+    });
   })
-  .catch( error => onFolderError );
+  .catch(onError);
+};
+
+const cancel = function(connectionModel, socketToken, conversionKey) {
+  // these methods already return promises
+  return connectionModel.getConversionModel(socketToken)
+    .then( model => {
+      model.search(conversionKey)
+        .then( conversion => {
+          conversion.destroy();
+          return model.remove(conversionKey);
+        });
+    });
+};
+
+const cancelAll = (connectionModel, socketToken) => {
+  return connectionModel.getConversionModel(socketToken)
+    .then( model => {
+      for(let key in model._list) {
+        const conversion = model._list[key];
+        conversion.destroy();
+        return model.remove(key);
+      }
+    })
+    .catch( e => {
+      Logger.info('converter.js: cancellAll: e:', e);
+    });
 };
 
 const makeDestinationFolder = function(folderId) {
@@ -145,5 +174,7 @@ const makeDestinationFolder = function(folderId) {
 // ----------------------------------------------------------------------
 
 module.exports = {
-  convert
+  convert,
+  cancel,
+  cancelAll
 };

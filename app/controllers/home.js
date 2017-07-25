@@ -1,16 +1,17 @@
 // TODO - isomorphic!
 // - just do simple views to experiment with transitions
 
-
-const express       = require('express');
-const router        = express.Router();
-const converter     = require('../services/converter');
-const Logger        = require('../utils/logger-util');
-const DirectoryUtil = require('../utils/dir-util');
+const express         = require('express');
+const router          = express.Router();
+const ConnectionModel = require('../models/connectionmodel');
+const ConversionModel = require('../models/conversionmodel');
+const converter       = require('../services/converter');
+const Logger          = require('../utils/logger-util');
+const DirectoryUtil   = require('../utils/dir-util');
 
 // emitted socket.io event keys - shared with client
 const CONVERSION_PROGRESS = 'CONVERSION_PROGRESS';
-let _si;
+const SOCKET_ERROR = 'SOCKET_ERROR';
 
 
 // ----------------------------------------------------------------------
@@ -32,12 +33,34 @@ module.exports = function(app, io) {
 // config socket
 //
 // ----------------------------------------------------------------------
+const _connectionModel = new ConnectionModel();
 
 const configureSocket = socket => {
-  _si = socket;
-  _si.on('disconnect', () => {
-    Logger.trace('home.js: on disconnection');
-  });
+  // index each socket connection
+  let token = socket.handshake.query.token;
+  _connectionModel.add(token, { socket, conversionModel: new ConversionModel() })
+    .then( connection => {
+      Logger.info('home.js: on connection: token:', token);
+
+      // bubble to promise chain
+      return new Promise( (resolve, reject) => {
+        // connection.socket === socket
+        socket.on('disconnect', () => {
+          Logger.info('home.js: on disconnection: token - this should be unique', token);
+
+          // interrupt / correct converter instance
+          return converter.cancelAll(_connectionModel, token)
+            .then(resolve)
+            .catch(reject);
+        });
+      });
+    })
+    .then( _ => {
+      Logger.info('home.js: connection broken; all converters cancelled', token);
+    })
+    .catch( error => {
+      socket.emit(SOCKET_ERROR, { error });
+    });
 };
 
 
@@ -64,7 +87,9 @@ router.post('/convert',
   (req, res, next) => {
     const body = req.body;
     const params = {
-      sessionId: body.sessionId,
+      model: _connectionModel,
+      socketToken: body.socketToken, // key for conversionModel
+      sessionId: body.sessionId, // folder name
       videoId: body.options.videoId,
       videoTitle: body.options.videoTitle,
       // optional
@@ -76,21 +101,24 @@ router.post('/convert',
 
     const callbacks = {
       onProgress: progress => {
-        _si.emit(CONVERSION_PROGRESS, {
-          videoId: progress.videoId,
-          percentage: progress.percentage
-        });
+        _connectionModel
+          .search(params.socketToken)
+          .then( connection =>
+            connection.socket.emit(CONVERSION_PROGRESS, {
+              videoId: progress.videoId,
+              percentage: progress.percentage
+            })
+          )
+          // 400 - bad request
+          // 418 - I'm a teapot
+          .catch( error => res.status(400).send({ error: error.message }) );
       },
       onComplete: (error, data) => {
         res.json(data);
       },
-      onConversionError: (error, data) => {
+      onError: (error, data) => {
         Logger.error('conversion error: error, data', error, data);
-        res.send(403, { error: error.message });
-      },
-      onFolderError: error => {
-        Logger.error('folder error: error', error);
-        res.send(403, { error: error.message });
+        res.status(403).send({ error: error.message });
       }
     };
 
@@ -98,6 +126,29 @@ router.post('/convert',
     converter.convert(params, callbacks);
   }
 
+);
+
+// cancel in progress conversion
+router.post('/cancel',
+  (req, res, next) => {
+    const {
+      socketToken,
+      sessionId,
+      videoId
+    } = req.body;
+
+    // interrupt / correct converter instance
+    if(!sessionId) {
+      return converter.cancelAll(_connectionModel, socketToken)
+        .then( _ => res.json({ msg: `${socketToken} - all converters cancelled.`}) )
+        .catch( error => res.status(400).send({ error: error.message }) );
+    }
+
+    const conversionKey = `${sessionId}-${videoId}`;
+    return converter.cancel(_connectionModel, socketToken, conversionKey)
+      .then( _ => res.json({ msg: `${videoId} - converter cancelled.`}) )
+      .catch( error => res.status(400).send({ error: error.message }) );
+  }
 );
 
 // zip request - array of mp3s to path to zip
@@ -119,14 +170,15 @@ router.post('/archive',
   }
 );
 
-// // serve up a page
-// router.get('/', function (req, res, next) {
-//   res.render('index', {
-//     title: 'Why are you here? You should be sending a post request.',
-//     articles: {
-//       title: 'title',
-//       url: 'url',
-//       text: 'text'
-//     }
-//   });
-// });
+// serve up a page
+router.get('/',
+  (req, res, next) => {
+    res.render('index', {
+      title: 'Why are you here? You should be sending a post request.',
+      articles: {
+        title: 'title',
+        url: 'url',
+        text: 'text'
+      }
+    });
+  });
