@@ -115,7 +115,8 @@ YoutubeMp3Downloader.prototype.performDownload = function(task, callback) {
       var videoTitle = self.cleanFileName(info.title);
       var artist = "Unknown";
       var title = "Unknown";
-      var thumbnail = info.iurlhq || null;
+      // var thumbnail = info.iurlhq || null;
+      var thumbnail = info.thumbnail_url || info.player_response.videoDetails.thumbnail.thumbnails.shift().url;
 
       if (videoTitle.indexOf("-") > -1) {
         var temp = videoTitle.split("-");

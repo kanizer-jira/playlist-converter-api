@@ -1,4 +1,5 @@
 const fs       = require('fs');
+const https    = require('https');
 const path     = require('path');
 const mkdirp   = require('mkdirp');
 const sanitize = require('sanitize-filename');
@@ -43,6 +44,7 @@ const convert = function(params, callbacks) {
     sessionId,
     videoId,
     videoTitle,
+    thumbnail,
     // optional
     startTime,
     duration,
@@ -80,7 +82,7 @@ const convert = function(params, callbacks) {
           runtime: 17,
           averageSpeed: 2136218.3
         },
-        file: './public/downloads//2017-03-29/Allen Stone - Somebody That I Used To Know (Gotye Cover - Live at Bear Creek Studio).mp3',
+        file: './public/downloads/2017-03-29/Allen Stone - Somebody That I Used To Know (Gotye Cover - Live at Bear Creek Studio).mp3',
         youtubeUrl: 'http://www.youtube.com/watch?v=wE46huUs20E',
         videoTitle: 'Allen Stone - Somebody That I Used To Know (Gotye Cover - Live at Bear Creek Studio)',
         artist: 'Allen Stone',
@@ -105,7 +107,12 @@ const convert = function(params, callbacks) {
     */
 
     conversion.on('progress', onProgress); // progress
-    conversion.on('finished', onComplete); // error, data
+    conversion.on('finished', (error, data) => {
+      // save thumbnail
+      saveThumbnail(folderId, data.videoTitle, thumbnail || data.thumbnail)
+        .then(onComplete(error, data))
+        .catch(onError);
+    }); // error, data
 
     // Trigger download
     const videoPath = `${folderId}/${sanitize(videoTitle)}.mp3`;
@@ -117,6 +124,27 @@ const convert = function(params, callbacks) {
     });
   })
   .catch(onError);
+};
+
+const saveThumbnail = (folderId, title, url) => {
+  // construct filename with extension and save
+  return new Promise( (resolve, reject) => {
+    const extension = url.split('.').pop();
+    const dest = `${config.outputPath}${folderId}/${title}.${extension}`;
+    fs.exists(dest, exists => {
+      if(!exists) {
+        const file = fs.createWriteStream(dest);
+        https.get(url, response => {
+          response.pipe(file);
+          file.on('finish', () => file.close(resolve));
+        })
+          .on('error', error => {
+            fs.unlink(dest);
+            reject(error);
+          });
+      }
+    });
+  });
 };
 
 const cancel = function(connectionModel, socketToken, conversionKey) {

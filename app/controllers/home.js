@@ -1,6 +1,3 @@
-// TODO - isomorphic!
-// - just do simple views to experiment with transitions
-
 const express         = require('express');
 const router          = express.Router();
 const ConnectionModel = require('../models/connectionmodel');
@@ -92,6 +89,7 @@ router.post('/convert',
       sessionId: body.sessionId, // folder name
       videoId: body.options.videoId,
       videoTitle: body.options.videoTitle,
+      thumbnail: body.options.thumbnail,
       // optional
       startTime: body.options.startTime,
       duration: body.options.duration,
@@ -118,7 +116,7 @@ router.post('/convert',
       },
       onError: (error, data) => {
         Logger.error('conversion error: error, data', error, data);
-        res.status(403).send({ error: error.message });
+        res.status(400).send({ error: error.message });
       }
     };
 
@@ -165,7 +163,7 @@ router.post('/archive',
     })
     .catch( err => {
       Logger.error('archive: err:', err);
-      res.status(403).send({error: err.message});
+      res.status(400).send({error: err.message});
     });
   }
 );
