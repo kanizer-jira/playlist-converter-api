@@ -138,17 +138,9 @@ router.post('/cancel',
     // interrupt / correct converter instance
     if(!sessionId) {
       return converter.cancelAll(_connectionModel, socketToken)
-        .then( _ => {
-          Logger.info('home.js: cancelAll promise resolved: _:', _);
-          res.json({ msg: `${socketToken} - all converters cancelled.`});
-        })
-        .catch( error => {
-          Logger.info('home.js: cancelall error:', error);
-          res.status(400).send({ error: error.message });
-        });
+        .then( _ => res.json({ msg: `${socketToken} - all converters cancelled.`}) )
+        .catch( error => res.status(400).send({ error: error.message }) );
     }
-
-    Logger.info('home.js: cancel: NO!');
 
     const conversionKey = `${sessionId}-${videoId}`;
     return converter.cancel(_connectionModel, socketToken, conversionKey)
