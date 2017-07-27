@@ -162,14 +162,17 @@ const cancel = function(connectionModel, socketToken, conversionKey) {
 const cancelAll = (connectionModel, socketToken) => {
   return connectionModel.getConversionModel(socketToken)
     .then( model => {
+      const promises = [];
       for(let key in model._list) {
         const conversion = model._list[key];
         conversion.destroy();
-        return model.remove(key);
+        promises.push(model.remove(key));
       }
+      return Promise.all(promises);
     })
-    .catch( e => {
-      Logger.info('converter.js: cancellAll: e:', e);
+    .catch( error => {
+      Logger.info('converter.js: cancellAll: error:', error);
+      return Promise.reject(error);
     });
 };
 
