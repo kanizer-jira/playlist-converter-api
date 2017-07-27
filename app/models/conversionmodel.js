@@ -21,12 +21,6 @@ class ConversionModel extends BaseModel {
     return super.remove(...arguments);
   }
 
-  removeTest(key, instance) {
-    return new Promise( (resolve, reject) => {
-      return reject('testing');
-    });
-  }
-
   search(key) {
     return super.search(...arguments);
   }

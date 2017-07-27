@@ -170,10 +170,7 @@ const cancelAll = (connectionModel, socketToken) => {
       }
       return Promise.all(promises);
     })
-    .catch( error => {
-      Logger.info('converter.js: cancellAll: error:', error);
-      return Promise.reject(error);
-    });
+    .catch( error => Promise.reject(error) );
 };
 
 const makeDestinationFolder = function(folderId) {

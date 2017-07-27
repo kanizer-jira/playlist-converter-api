@@ -64,6 +64,9 @@ function YoutubeMp3Downloader(options) {
 
   }, self.queueParallelism);
 
+  self.downloadQueue.drain = error => {
+    Logger.info('YoutubeMp3Downloader.js: drain:', error ? error : '');
+  };
 }
 
 util.inherits(YoutubeMp3Downloader, EventEmitter);
@@ -134,6 +137,9 @@ YoutubeMp3Downloader.prototype.performDownload = function(task, callback) {
 
       //Derive file name, if given, use it, if not, from video title
       var fileName = (task.fileName ? self.outputPath + '/' + task.fileName : self.outputPath + '/' + videoTitle + '.mp3');
+
+      // not sure how else to interrupt an async.queue task
+      if(self.cancelled) return;
 
       ytdl.getInfo(videoUrl, {
         begin: self.startTime + 's',
@@ -230,7 +236,10 @@ YoutubeMp3Downloader.prototype.destroy = function() {
   }
 
   if(this.downloadQueue) {
-    this.downloadQueue.kill(); // or .drain()?
+    // this doesn't appear to affect the currently executing task!
+    this.downloadQueue.kill();
+    // soooooo....
+    this.cancelled = true;
   }
 };
 
