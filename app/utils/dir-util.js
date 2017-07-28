@@ -39,7 +39,7 @@ class DirectoryUtil {
       archive.pipe(output); // pipe archive data to the file
 
       // append files in target directory
-      glob(`${fullPath}/*.mp3`, (err, files) => {
+      glob(`${fullPath}/*.{mp3,jpg}`, (err, files) => {
         if(err) {
           return reject(err);
         }
