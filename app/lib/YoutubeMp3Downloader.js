@@ -189,8 +189,14 @@ YoutubeMp3Downloader.prototype.performDownload = function(task, callback) {
           })
           .audioBitrate(info.formats[0].audioBitrate)
           .withAudioCodec('libmp3lame')
-          .toFormat('mp3')
-          .seekInput(self.startTime) // time trim entry point timestamp string
+          .toFormat('mp3');
+
+          // clipping beginnings of tracks a bit
+          if(self.startTime !== 0) {
+            proc.seekInput(self.startTime); // time trim entry point timestamp string
+          }
+
+          proc
           .outputOptions('-id3v2_version', '4')
           .outputOptions('-metadata', 'title=' + title)
           .outputOptions('-metadata', 'artist=' + artist)

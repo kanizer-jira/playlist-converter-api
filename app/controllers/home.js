@@ -111,7 +111,7 @@ router.post('/convert',
           // 418 - I'm a teapot
           .catch( error => res.status(400).send({ error: error.message }) );
       },
-      onComplete: (error, data) => {
+      onComplete: data => {
         res.json(data);
       },
       onError: (error, data) => {

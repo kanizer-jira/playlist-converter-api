@@ -1,11 +1,12 @@
-const fs       = require('fs');
-const https    = require('https');
-const path     = require('path');
-const mkdirp   = require('mkdirp');
-const sanitize = require('sanitize-filename');
-const Ytdl     = require('../lib/YoutubeMp3Downloader');
-const DateUtil = require('../utils/date-util');
-const Logger   = require('../utils/logger-util');
+const fs         = require('fs');
+const https      = require('https');
+const path       = require('path');
+const mkdirp     = require('mkdirp');
+const sanitize   = require('sanitize-filename');
+const ffmetadata = require('ffmetadata');
+const Ytdl       = require('../lib/YoutubeMp3Downloader');
+const DateUtil   = require('../utils/date-util');
+const Logger     = require('../utils/logger-util');
 
 
 // This instance handles downloading from Youtube and handling the conversion requests
@@ -109,8 +110,12 @@ const convert = function(params, callbacks) {
     conversion.on('progress', onProgress); // progress
     conversion.on('finished', (error, data) => {
       // save thumbnail
-      saveThumbnail(folderId, data.videoTitle, thumbnail || data.thumbnail)
-        .then(onComplete(error, data))
+      saveThumbnail(folderId, data, thumbnail || data.thumbnail)
+        .then( thumbnailPath => {
+          return updateMetaData(data.file, thumbnailPath);
+        })
+        .then(deleteThumbnail)
+        .then(onComplete(data))
         .catch(onError);
     }); // error, data
 
@@ -126,23 +131,49 @@ const convert = function(params, callbacks) {
   .catch(onError);
 };
 
-const saveThumbnail = (folderId, title, url) => {
+const saveThumbnail = (folderId, fileData, url) => {
   // construct filename with extension and save
   return new Promise( (resolve, reject) => {
     const extension = url.split('.').pop();
-    const dest = `${config.outputPath}${folderId}/${title}.${extension}`;
+    const dest = `${config.outputPath}${folderId}/${fileData.title}.${extension}`;
     fs.exists(dest, exists => {
       if(!exists) {
         const file = fs.createWriteStream(dest);
         https.get(url, response => {
           response.pipe(file);
-          file.on('finish', () => file.close(resolve));
-        })
-          .on('error', error => {
-            fs.unlink(dest);
-            reject(error);
+          file.on('finish', () => {
+            file.close(resolve(dest));
           });
+        })
+        .on('error', error => {
+          fs.unlink(dest);
+          reject(error);
+        });
       }
+    });
+  });
+};
+
+const deleteThumbnail = url => {
+  return new Promise( (resolve, reject) => {
+    fs.exists(url, exists => {
+      if(exists) {
+        fs.unlink(url, err => {
+          return err ? reject(err) : resolve();
+        });
+      }
+    });
+  });
+};
+
+const updateMetaData = (file, thumbnail) => {
+  return new Promise( (resolve, reject) => {
+    // add thumbnail to metadata
+    ffmetadata.write(file, {}, { attachments: [thumbnail] }, err => {
+      if(err) {
+        return reject(err);
+      }
+      return resolve(thumbnail);
     });
   });
 };
