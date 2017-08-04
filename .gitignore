@@ -3,3 +3,4 @@ public/components
 public/downloads/*
 .nyc_output
 .sass-cache
+_constants.js
