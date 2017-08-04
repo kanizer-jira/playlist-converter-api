@@ -1,5 +1,6 @@
 const express         = require('express');
 const router          = express.Router();
+const request         = require('request');
 const ConnectionModel = require('../models/connectionmodel');
 const ConversionModel = require('../models/conversionmodel');
 const converter       = require('../services/converter');
@@ -9,6 +10,12 @@ const DirectoryUtil   = require('../utils/dir-util');
 // emitted socket.io event keys - shared with client
 const CONVERSION_PROGRESS = 'CONVERSION_PROGRESS';
 const SOCKET_ERROR = 'SOCKET_ERROR';
+
+const PLAYLIST_URL = 'https://www.googleapis.com/youtube/v3';
+const _DEV_ = process.env.NODE_ENV !== 'prod';
+const PLAYLIST_API_KEY = _DEV_
+? require('../../_constants').YOUTUBE_API_KEY
+: process.env.YOUTUBE_API_KEY;
 
 
 // ----------------------------------------------------------------------
@@ -74,6 +81,43 @@ router.use(function(req, res, next) {
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
   next();
 });
+
+// proxy request to youtube playlist APIs to obscure api key
+router.post('/playlist',
+  (req, res, next) => {
+    const playlistId = req.body.playlistId || 'PLV2v9WNyDEGB80tDATwShnqI_P9-biTho';
+    const url = `${PLAYLIST_URL}/playlists?part=snippet&id=${playlistId}&key=${PLAYLIST_API_KEY}`;
+
+    request(url, (error, response, body) => {
+      if(error) {
+        Logger.info('error:', error); // Print the error if one occurred
+        return res.status(400).send(error);
+      }
+      // Logger.info('statusCode:', response && response.statusCode); // Print the response status code if a response was received
+      // Logger.info('body:', body); // Print the HTML for the Google homepage.
+      res.status(response.statusCode).send(body);
+    });
+  }
+);
+
+// proxy request to youtube playlist APIs to obscure api key
+router.post('/playlistItems',
+  (req, res, next) => {
+    const playlistId = req.body.playlistId || 'PLV2v9WNyDEGB80tDATwShnqI_P9-biTho';
+    const pagination = req.body.pageToken ? `&pageToken=${req.body.pageToken}` : '';
+    const url = `${PLAYLIST_URL}/playlistItems?part=snippet&playlistId=${playlistId}&maxLength=10&key=${PLAYLIST_API_KEY}${pagination}`;
+
+    request(url, (error, response, body) => {
+      if(error) {
+        Logger.info('error:', error); // Print the error if one occurred
+        return res.status(400).send(error);
+      }
+      // Logger.info('statusCode:', response && response.statusCode); // Print the response status code if a response was received
+      // Logger.info('body:', body); // Print the HTML for the Google homepage.
+      res.status(response.statusCode).send(body);
+    });
+  }
+);
 
 // conversion request - url to mp3
 router.post('/convert',
@@ -179,4 +223,12 @@ router.get('/',
         text: 'text'
       }
     });
+  });
+
+// sample json request route
+router.get('/testing',
+  (req, res, next) => {
+
+    next(new Error('testing'));
+
   });
