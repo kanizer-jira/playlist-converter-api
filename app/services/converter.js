@@ -136,20 +136,16 @@ const saveThumbnail = (folderId, fileData, url) => {
   return new Promise( (resolve, reject) => {
     const extension = url.split('.').pop();
     const dest = `${config.outputPath}${folderId}/${fileData.title}.${extension}`;
-    fs.exists(dest, exists => {
-      if(!exists) {
-        const file = fs.createWriteStream(dest);
-        https.get(url, response => {
-          response.pipe(file);
-          file.on('finish', () => {
-            file.close(resolve(dest));
-          });
-        })
-        .on('error', error => {
-          fs.unlink(dest);
-          reject(error);
-        });
-      }
+    const file = fs.createWriteStream(dest);
+    https.get(url, response => {
+      response.pipe(file);
+      file.on('finish', () => {
+        file.close(resolve(dest));
+      });
+    })
+    .on('error', error => {
+      fs.unlink(dest);
+      reject(error);
     });
   });
 };
