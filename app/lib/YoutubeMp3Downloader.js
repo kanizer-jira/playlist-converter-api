@@ -151,7 +151,6 @@ YoutubeMp3Downloader.prototype.performDownload = function(task, callback) {
         var duration = (!self.duration && self.startTime)
         ? fullLengthSeconds - self.startTime
         : self.duration;
-        var trimmedPercentage = duration ? Math.floor(duration/fullLengthSeconds * 100) : 100;
 
         //Stream setup
         self.currentStream = ytdl.downloadFromInfo(info, {
@@ -178,7 +177,7 @@ YoutubeMp3Downloader.prototype.performDownload = function(task, callback) {
 
             self.emit("progress", {
               videoId: task.videoId,
-              percentage: progress.percentage / trimmedPercentage
+              percentage: progress.percentage / 100
               // progress: progress
             });
           });
